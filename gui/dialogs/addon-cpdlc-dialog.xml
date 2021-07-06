@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PropertyList>
+    <name>addon-cpdlc-dialog</name>
+    <layout>vbox</layout>
+	<width>600</width>
+
+	<group>
+		<layout>hbox</layout>
+		<empty>
+			<stretch>1</stretch>
+		</empty>
+		<text>
+			<label>CPDLC</label>
+		</text>
+		<empty>
+			<stretch>1</stretch>
+		</empty>
+		<button>
+			<pref-width>16</pref-width>
+			<pref-height>16</pref-height>
+			<legend></legend>
+			<keynum>27</keynum>
+			<border>2</border>
+			<binding>
+				<command>dialog-close</command>
+			</binding>
+		</button>
+	</group>
+	<hrule />
+
+    <group>
+        <layout>hbox</layout>
+        <halign>left</halign>
+        <input>
+            <property>/cpdlc/logon-station</property>
+            <name>logon-station</name>
+            <live>1</live>
+            <binding>
+                <command>dialog-apply</command>
+                <object-name>logon-station</object-name>
+            </binding>
+        </input>
+        <button>
+            <legend>Logon</legend>
+            <binding>
+                <command>dialog-apply</command>
+                <object-name>logon-station</object-name>
+            </binding>
+            <binding>
+                <command>nasal</command>
+                <script>globals.cpdlc.cpdlcRequestLogon();</script>
+            </binding>
+        </button>
+        <text>
+            <label>Current: </label>
+        </text>
+        <text>
+            <property>/cpdlc/current-station</property>
+            <live>true</live>
+            <width>150</width>
+        </text>
+    </group>
+
+	<button>
+		<legend>Close</legend>
+		<binding>
+			<command>dialog-close</command>
+		</binding>
+	</button>
+</PropertyList>

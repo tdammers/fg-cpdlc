@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<PropertyList>
+    <acars>
+        <status-text type="string">n/a</status-text>
+        <uplink>
+            <status type="string" />
+        </uplink>
+        <downlink>
+            <status type="string" />
+        </downlink>
+        <formatted-log type="string"/>
+    </acars>
+    <cpdlc>
+        <logon-station type="string"/>
+        <current-station type="string"/>
+        <last-station type="string"/>
+        <next-min type="int">1</next-min>
+    </cpdlc>
+</PropertyList>
