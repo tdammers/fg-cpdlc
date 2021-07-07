@@ -13,7 +13,9 @@
     <cpdlc>
         <logon-station type="string"/>
         <current-station type="string"/>
+        <current-station-name type="string"/>
         <last-station type="string"/>
+        <last-station-name type="string"/>
         <next-min type="int">1</next-min>
     </cpdlc>
 </PropertyList>

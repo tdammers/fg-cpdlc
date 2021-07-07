@@ -2,7 +2,7 @@
 <PropertyList>
     <name>addon-cpdlc-dialog</name>
     <layout>vbox</layout>
-	<width>600</width>
+	<width>800</width>
 
 	<group>
 		<layout>hbox</layout>
@@ -28,6 +28,10 @@
 	</group>
 	<hrule />
 
+    <text>
+        <label>ATC</label>
+    </text>
+
     <group>
         <layout>hbox</layout>
         <halign>left</halign>
@@ -51,6 +55,13 @@
                 <script>globals.cpdlc.cpdlcRequestLogon();</script>
             </binding>
         </button>
+        <button>
+            <legend>Logoff</legend>
+            <binding>
+                <command>nasal</command>
+                <script>globals.cpdlc.cpdlcLogoff();</script>
+            </binding>
+        </button>
         <text>
             <label>Current: </label>
         </text>
@@ -59,12 +70,83 @@
             <live>true</live>
             <width>150</width>
         </text>
+        <text>
+            <property>/cpdlc/current-station-name</property>
+            <live>true</live>
+            <width>200</width>
+        </text>
     </group>
 
-	<button>
-		<legend>Close</legend>
-		<binding>
-			<command>dialog-close</command>
-		</binding>
-	</button>
+    <hrule/>
+    <text>
+        <label>TELEX</label>
+    </text>
+    <textbox>
+        <halign>fill</halign>
+        <valign>fill</valign>
+        <stretch>true</stretch>
+        <pref-width>350</pref-width>
+        <pref-height>150</pref-height>
+        <slider>20</slider>
+        <live>true</live>
+        <wrap>true</wrap>
+        <editable>false</editable>
+        <top-line>-4</top-line>
+        <property>/cpdlc/dialog/telex-log</property>
+    </textbox>
+    <group>
+        <layout>hbox</layout>
+        <input>
+            <halign>fill</halign>
+            <property>/cpdlc/dialog/telex-message</property>
+            <pref-width>550</pref-width>
+            <name>telex-message</name>
+            <binding>
+                <command>dialog-apply</command>
+                <object-name>telex-message</object-name>
+            </binding>
+        </input>
+        <button>
+            <legend>Send</legend>
+            <halign>fill</halign>
+            <pref-width>50</pref-width>
+            <width>50</width>
+            <binding>
+                <command>dialog-apply</command>
+                <object-name>telex-message</object-name>
+            </binding>
+            <binding>
+                <command>dialog-apply</command>
+                <object-name>logon-station</object-name>
+            </binding>
+            <binding>
+                <command>nasal</command>
+                <script><![CDATA[
+                    var msg = getprop('/cpdlc/dialog/telex-message');
+                    var to = getprop('/cpdlc/logon-station');
+
+                    globals.acars.send(to, 'telex', string.uc(msg));
+                    setprop('/cpdlc/dialog/telex-message', '');
+                ]]></script>
+            </binding>
+        </button>
+    </group>
+
+    <hrule/>
+    <group>
+        <layout>hbox</layout>
+        <button>
+            <legend>Reload CPDLC Addon</legend>
+            <binding>
+                <command>addon-reload</command>
+                <id>nl.tobiasdammers.fg-cpdlc</id>
+            </binding>
+        </button>
+        <button>
+            <legend>Close</legend>
+            <binding>
+                <command>dialog-close</command>
+            </binding>
+        </button>
+    </group>
 </PropertyList>
