@@ -17,5 +17,13 @@
         <last-station type="string"/>
         <last-station-name type="string"/>
         <next-min type="int">1</next-min>
+        <dialog>
+            <telex-to type="string" />
+            <telex-log type="string"/>
+            <telex-message type="string"/>
+            <selected-cpdlc/>
+        </dialog>
+        <num-unread type="int">0</num-unread>
+        <num-open type="int">0</num-open>
     </cpdlc>
 </PropertyList>

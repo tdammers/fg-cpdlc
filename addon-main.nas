@@ -78,9 +78,11 @@ var CPDLC = {
         elsif (startswith(m, 'HANDOVER') and string.scanf(m, 'HANDOVER @%4s', vars)) {
             me.cpdlcRequestLogon(vars[0]);
         }
-        elsif (startswith(m, 'CURRENT ATC UNIT') and string.scanf(m, 'CURRENT ATC UNIT@_@%4s@_@%s', vars)) {
-            if (getprop('/cpdlc/current-station') == vars[0]) {
-                setprop('/cpdlc/current-station-name', vars[1]);
+        elsif (startswith(m, 'CURRENT ATC UNIT') and (string.scanf(m, 'CURRENT ATC UNIT@_@%4s@_@%', vars) != 0)) {
+            var currentStation = vars[0];
+            var stationName = substr(m, size('CURRENT ATC UNIT@_@@_@') + size(currentStation));
+            if (getprop('/cpdlc/current-station') == currentStation) {
+                setprop('/cpdlc/current-station-name', stationName);
             }
         }
         else {
@@ -93,6 +95,78 @@ var CPDLC = {
         else {
             # response required, add to open dialog heads.
             append(me.dialogHeads, msgID);
+            setprop('/cpdlc/num-open', size(me.dialogHeads));
+        }
+    },
+
+    selectDialog: func (msgID) {
+        var msg = me.messages[msgID or ''];
+        var node = props.globals.getNode('/cpdlc/dialog/selected-cpdlc');
+        if (msg == nil) {
+            node.setValues({
+                'id': '',
+                cpdlc: {
+                    message: '',
+                    min: '',
+                    mrn: '',
+                    ra: '',
+                },
+                from: '',
+                to: '',
+                dir: '',
+                packet: '',
+                status: '',
+                type: '',
+            });
+        }
+        else {
+            node.setValues(msg);
+            node.setValue('id', msgID);
+        }
+    },
+
+    selectFirstOpenDialog: func () {
+        if (size(me.dialogHeads) == 0) {
+            me.selectDialog(nil);
+            return;
+        }
+        var msgID = me.dialogHeads[0];
+        me.selectDialog(msgID);
+    },
+
+    selectNextOpenDialog: func () {
+        var found = 0;
+        var selected = props.globals.getNode('/cpdlc/dialog/selected-cpdlc');
+        var selectedID = (selected.getValue('from') or '') ~ '/' ~ (selected.getValue('cpdlc/min') or '');
+        if (selectedID == '/') {
+            me.selectFirstOpenDialog();
+            return;
+        }
+        foreach (var h; me.dialogHeads) {
+            if (found) {
+                me.selectDialog(h);
+                return;
+            }
+            if (h == selectedID) {
+                found = 1;
+            }
+        }
+    },
+
+    selectPrevOpenDialog: func () {
+        var prevID = me.dialogHeads[0];
+        var selected = props.globals.getNode('/cpdlc/dialog/selected-cpdlc');
+        var selectedID = (selected.getValue('from') or '') ~ '/' ~ (selected.getValue('cpdlc/min') or '');
+        if (selectedID == '/') {
+            me.selectFirstOpenDialog();
+            return;
+        }
+        foreach (var h; me.dialogHeads) {
+            if (h == selectedID) {
+                me.selectDialog(prevID);
+                return;
+            }
+            prevID = h;
         }
     },
 
@@ -114,21 +188,22 @@ var CPDLC = {
         setprop('/cpdlc/current-station-name', '');
     },
 
-    cpdlcReply: func (msg, ra, reply) {
-        if (typeof(msg) == 'string') {
-            msg = me.messages[msg];
+    cpdlcReply: func (msgID, ra, reply) {
+        var msg = msgID;
+        if (typeof(msgID) == 'scalar') {
+            msg = me.messages[msgID];
         }
         if (msg == nil) {
-            debug.warn('Message for reply not found: ' ~ msg);
+            debug.warn('Message for reply not found: ' ~ msgID);
         }
-        if (msg.cpdlc.dir != 'uplink') {
+        if (msg.dir != 'uplink') {
             debug.warn('Cannot reply to downlink messages');
             return;
         }
-        if (me.closesDialog(msg.ra, reply)) {
+        if (me.closesDialog(msg.cpdlc.ra, reply)) {
             me.closeDialogHead(msg);
         }
-        me.sendCPDLC(msg.from, msg.min, ra, reply);
+        me.sendCPDLC(msg.from, msg.cpdlc.min, ra, reply);
     },
 
     closesDialog: func(ra, reply) {
@@ -188,7 +263,7 @@ var CPDLC = {
 
     closeDialogHead: func (msgID) {
         if (msgID == nil) return;
-        if (typeof(msgID) != 'string') {
+        if (typeof(msgID) != 'scalar') {
             msgID = msgID.from ~ '/' ~ msgID.cpdlc.min;
         }
         var tmp = [];
@@ -196,6 +271,7 @@ var CPDLC = {
             if (h != msgID) append(tmp, h);
         }
         me.dialogHeads = tmp;
+        setprop('/cpdlc/num-open', size(me.dialogHeads));
     },
 
     handleDownlink: func() {
@@ -215,7 +291,8 @@ var CPDLC = {
             }
             append(me.dialogHeads, msgID);
             append(me.history, msgID);
-            append(me.unread, msgID);
+            setprop('/cpdlc/num-open', size(me.dialogHeads));
+            setprop('/cpdlc/num-unread', size(me.unread));
         }
         else {
             append(me.telexDownlink, msg);
@@ -239,6 +316,7 @@ var CPDLC = {
                     if (h != parentID) append(tmp, h);
                 }
                 me.dialogHeads = tmp;
+                setprop('/cpdlc/num-open', size(me.dialogHeads));
             }
             append(me.history, msgID);
             me.cpdlcHandleUplink(msg);
