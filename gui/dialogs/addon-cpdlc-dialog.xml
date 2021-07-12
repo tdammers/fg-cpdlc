@@ -92,7 +92,7 @@
                 <legend>Request</legend>
                 <binding>
                     <command>nasal</command>
-                    <script>globals.cpdlc.selectDialog(nil);</script>
+                    <script>globals.cpdlc.selectMessage(nil);</script>
                 </binding>
             </button>
             <group>
@@ -107,6 +107,7 @@
                 <text>
                     <property>/cpdlc/num-open</property>
                     <pref-width>20</pref-width>
+                    <live>true</live>
                 </text>
             </group>
             <button>
@@ -114,7 +115,7 @@
                 <legend>First Open</legend>
                 <binding>
                     <command>nasal</command>
-                    <script>globals.cpdlc.selectFirstOpenDialog();</script>
+                    <script>globals.cpdlc.selectFirstOpen();</script>
                 </binding>
                 <visible>
                     <greater-than>
@@ -128,7 +129,7 @@
                 <legend>Prev Open</legend>
                 <binding>
                     <command>nasal</command>
-                    <script>globals.cpdlc.selectPrevOpenDialog();</script>
+                    <script>globals.cpdlc.selectPrevOpen();</script>
                 </binding>
                 <visible>
                     <greater-than>
@@ -142,11 +143,69 @@
                 <legend>Next Open</legend>
                 <binding>
                     <command>nasal</command>
-                    <script>globals.cpdlc.selectNextOpenDialog();</script>
+                    <script>globals.cpdlc.selectNextOpen();</script>
                 </binding>
                 <visible>
                     <greater-than>
                         <property>/cpdlc/num-open</property>
+                        <value>0</value>
+                    </greater-than>
+                </visible>
+            </button>
+
+            <group>
+                <halign>fill</halign>
+                <layout>hbox</layout>
+                <pref-width>100</pref-width>
+                <pref-height>20</pref-height>
+                <text>
+                    <label>UNREAD:</label>
+                    <pref-width>20</pref-width>
+                </text>
+                <text>
+                    <property>/cpdlc/num-unread</property>
+                    <pref-width>20</pref-width>
+                    <live>true</live>
+                </text>
+            </group>
+            <button>
+                <halign>fill</halign>
+                <legend>First Unread</legend>
+                <binding>
+                    <command>nasal</command>
+                    <script>globals.cpdlc.selectFirstUnread();</script>
+                </binding>
+                <visible>
+                    <greater-than>
+                        <property>/cpdlc/num-unread</property>
+                        <value>0</value>
+                    </greater-than>
+                </visible>
+            </button>
+            <button>
+                <halign>fill</halign>
+                <legend>Prev Unread</legend>
+                <binding>
+                    <command>nasal</command>
+                    <script>globals.cpdlc.selectPrevUnread();</script>
+                </binding>
+                <visible>
+                    <greater-than>
+                        <property>/cpdlc/num-unread</property>
+                        <value>0</value>
+                    </greater-than>
+                </visible>
+            </button>
+            <button>
+                <halign>fill</halign>
+                <legend>Next Unread</legend>
+                <binding>
+                    <command>nasal</command>
+                    <script>globals.cpdlc.selectNextUnread();</script>
+                </binding>
+                <visible>
+                    <greater-than>
+                        <property>/cpdlc/num-unread</property>
                         <value>0</value>
                     </greater-than>
                 </visible>
@@ -159,7 +218,7 @@
                 <layout>hbox</layout>
                 <halign>left</halign>
                 <text>
-                    <property>/cpdlc/dialog/selected-cpdlc/from</property>
+                    <property>/cpdlc/selected-message/from</property>
                     <live>true</live>
                     <height>20</height>
                     <pref-width>50</pref-width>
@@ -172,7 +231,7 @@
                     <halign>left</halign>
                 </text>
                 <text>
-                    <property>/cpdlc/dialog/selected-cpdlc/to</property>
+                    <property>/cpdlc/selected-message/to</property>
                     <live>true</live>
                     <height>20</height>
                     <pref-width>50</pref-width>
@@ -181,7 +240,7 @@
                 </text>
             </group>
             <textbox>
-                <property>/cpdlc/dialog/selected-cpdlc/cpdlc/message</property>
+                <property>/cpdlc/selected-message/message</property>
                 <halign>fill</halign>
                 <valign>top</valign>
                 <stretch>true</stretch>
@@ -209,14 +268,14 @@
                 <halign>fill</halign>
                 <visible>
                     <equals>
-                        <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                        <property>/cpdlc/selected-message/cpdlc/ra</property>
                         <value>R</value>
                     </equals>
                 </visible>
                 <binding>
                     <command>nasal</command>
                     <script>
-                        globals.cpdlc.cpdlcRoger(getprop('/cpdlc/dialog/selected-cpdlc/id'));
+                        globals.cpdlc.cpdlcRoger(getprop('/cpdlc/selected-message/id'));
                     </script>
                 </binding>
             </button>
@@ -227,14 +286,14 @@
                 <halign>fill</halign>
                 <visible>
                     <equals>
-                        <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                        <property>/cpdlc/selected-message/cpdlc/ra</property>
                         <value>WU</value>
                     </equals>
                 </visible>
                 <binding>
                     <command>nasal</command>
                     <script>
-                        globals.cpdlc.cpdlcWilco(getprop('/cpdlc/dialog/selected-cpdlc/id'));
+                        globals.cpdlc.cpdlcWilco(getprop('/cpdlc/selected-message/id'));
                     </script>
                 </binding>
             </button>
@@ -246,11 +305,11 @@
                 <visible>
                     <or>
                         <equals>
-                            <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
                             <value>WU</value>
                         </equals>
                         <equals>
-                            <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
                             <value>R</value>
                         </equals>
                     </or>
@@ -263,7 +322,7 @@
                     <command>nasal</command>
                     <script>
                         globals.cpdlc.cpdlcUnable(
-                            getprop('/cpdlc/dialog/selected-cpdlc/id'),
+                            getprop('/cpdlc/selected-message/id'),
                             getprop('/cpdlc/dialog/unable-reason'));
                     </script>
                 </binding>
@@ -275,11 +334,11 @@
                 <visible>
                     <or>
                         <equals>
-                            <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
                             <value>WU</value>
                         </equals>
                         <equals>
-                            <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
                             <value>R</value>
                         </equals>
                     </or>
@@ -292,11 +351,11 @@
                 <visible>
                     <or>
                         <equals>
-                            <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
                             <value>WU</value>
                         </equals>
                         <equals>
-                            <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
                             <value>R</value>
                         </equals>
                     </or>
@@ -315,14 +374,14 @@
                 <halign>fill</halign>
                 <visible>
                     <equals>
-                        <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                        <property>/cpdlc/selected-message/cpdlc/ra</property>
                         <value>AN</value>
                     </equals>
                 </visible>
                 <binding>
                     <command>nasal</command>
                     <script>
-                        globals.cpdlc.cpdlcAffirm(getprop('/cpdlc/dialog/selected-cpdlc/id'));
+                        globals.cpdlc.cpdlcAffirm(getprop('/cpdlc/selected-message/id'));
                     </script>
                 </binding>
             </button>
@@ -333,14 +392,14 @@
                 <halign>fill</halign>
                 <visible>
                     <equals>
-                        <property>/cpdlc/dialog/selected-cpdlc/cpdlc/ra</property>
+                        <property>/cpdlc/selected-message/cpdlc/ra</property>
                         <value>AN</value>
                     </equals>
                 </visible>
                 <binding>
                     <command>nasal</command>
                     <script>
-                        globals.cpdlc.cpdlcNegative(getprop('/cpdlc/dialog/selected-cpdlc/id'));
+                        globals.cpdlc.cpdlcNegative(getprop('/cpdlc/selected-message/id'));
                     </script>
                 </binding>
             </button>

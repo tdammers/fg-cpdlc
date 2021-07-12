@@ -5,18 +5,32 @@ var CPDLC = {
             downlinkNode: props.globals.getNode('/acars/downlink', 1),
             uplinkNode: props.globals.getNode('/acars/uplink', 1),
             statusNode: props.globals.getNode('/acars/status-text', 1),
-            messages: {}, # messages by ID ({$SENDER}%{$MIN})
-            dialogHeads: [], # last message IDs of all open dialogs
-            history: [], # all message IDs in order received / sent
-            unread: [], # unread message IDs in order received / sent
-            downlinkErrors: [],
 
-            telexUplink: [],
-            telexDownlink: [],
+
+            selectedMessageNode: props.globals.getNode('/cpdlc/selected-message', 1),
+            selectedMessageIDNode: props.globals.getNode('/cpdlc/selected-message-id', 1),
+            numOpenNode: props.globals.getNode('/cpdlc/num-open', 1),
+            numUnreadNode: props.globals.getNode('/cpdlc/num-unread', 1),
+            messagesNode: props.globals.getNode('/cpdlc/messages', 1),
+            unreadNode: props.globals.getNode('/cpdlc/unread', 1),
+            openNode: props.globals.getNode('/cpdlc/open', 1),
+            historyNode: props.globals.getNode('/cpdlc/history', 1),
         };
     },
 
-    reset: func() {
+    addItem: func (node, val) {
+        node.addChild('item').setValue(val);
+    },
+
+    removeItem: func (node, val) {
+        var numRemoved = 0;
+        foreach (var c; node.getChildren('item')) {
+            if (c.getValue() == val) {
+                c.remove();
+                numRemoved += 1;
+            }
+        }
+        return numRemoved;
     },
 
     parseCPDLC: func (str) {
@@ -58,7 +72,7 @@ var CPDLC = {
 
 
     cpdlcHandleUplink: func (msg) {
-        var msgID = msg.from ~ '/' ~ msg.cpdlc.min;
+        var msgID = me.makeMessageID(msg);
         var m = msg.cpdlc.message;
         var vars = [];
         if (typeof(m) == 'vector') { m = m[0]; }
@@ -94,14 +108,68 @@ var CPDLC = {
         }
         else {
             # response required, add to open dialog heads.
-            append(me.dialogHeads, msgID);
-            setprop('/cpdlc/num-open', size(me.dialogHeads));
+            me.addItem(me.openNode, msgID);
+            me.numOpenNode.increment();
+        }
+
+        if (msg.cpdlc.mrn != '') {
+            var parentID = me.makeMessageID(msg.to, 'C', msg.cpdlc.mrn);
+            var parent = me.getMessage(parentID);
+            if (parent != nil and me.closesDialog(parent.cpdlc.ra, m)) {
+                var numRemoved = me.removeItem(me.openNode, parentID);
+                me.numOpenNode.decrement(numRemoved);
+            }
         }
     },
 
-    selectDialog: func (msgID) {
-        var msg = me.messages[msgID or ''];
-        var node = props.globals.getNode('/cpdlc/dialog/selected-cpdlc');
+    cpdlcHandleDownlink: func (msg) {
+        var msgID = me.makeMessageID(msg);
+        var m = msg.cpdlc.message;
+        if (typeof(m) == 'vector') { m = m[0]; }
+        m = string.uc(m);
+
+        if (msg.cpdlc.mrn != '') {
+            var parentID = me.makeMessageID(msg.to, 'C', msg.cpdlc.mrn);
+            var parent = me.getMessage(parentID);
+            if (parent != nil and me.closesDialog(parent.cpdlc.ra, m)) {
+                var numRemoved = me.removeItem(me.openNode, parentID);
+                me.numOpenNode.decrement(numRemoved);
+            }
+        }
+        if (msg.cpdlc.ra == 'Y') {
+            me.addItem(me.openNode, msgID);
+            me.numOpenNode.increment();
+        }
+        me.selectMessage(msgID);
+    },
+
+    getMessage: func(msgID) {
+        if (msgID == nil) {
+            return nil;
+        }
+        var node = me.messagesNode.getNode(msgID);
+        if (node == nil) {
+            return nil;
+        }
+        else {
+            return me.messageFromNode(node);
+        }
+    },
+
+    putMessage: func (msg) {
+        var serial = getprop('/cpdlc/next-serial');
+        setprop('/cpdlc/next-serial', serial + 1);
+        msg.serial = serial;
+
+        var msgID = me.makeMessageID(msg);
+        var node = me.messagesNode.getNode(msgID, 1);
+        me.messageToNode(node, msg);
+        return msgID;
+    },
+
+    selectMessage: func (msgID) {
+        var msg = me.getMessage(msgID);
+        var node = me.selectedMessageNode;
         if (msg == nil) {
             node.setValues({
                 'id': '',
@@ -117,34 +185,45 @@ var CPDLC = {
                 packet: '',
                 status: '',
                 type: '',
+                message: '',
             });
         }
         else {
             node.setValues(msg);
             node.setValue('id', msgID);
+            if (msg['cpdlc'] != nil) {
+                node.setValue('message', msg.cpdlc.message);
+            }
+            else {
+                node.setValue('message', msg.packet);
+            }
         }
+        var numRemoved = me.removeItem(me.unreadNode, msgID);
+        me.numUnreadNode.decrement(numRemoved);
+        me.selectedMessageIDNode.setValue(msgID or '');
     },
 
-    selectFirstOpenDialog: func () {
-        if (size(me.dialogHeads) == 0) {
-            me.selectDialog(nil);
+    selectFirstOpen: func () {
+        if (me.numOpenNode.getValue() == 0) {
+            me.select(nil);
             return;
         }
-        var msgID = me.dialogHeads[0];
-        me.selectDialog(msgID);
+        var msgID = me.openNode.getValue('item');
+        me.selectMessage(msgID);
     },
 
-    selectNextOpenDialog: func () {
+    selectNextOpen: func () {
         var found = 0;
-        var selected = props.globals.getNode('/cpdlc/dialog/selected-cpdlc');
-        var selectedID = (selected.getValue('from') or '') ~ '/' ~ (selected.getValue('cpdlc/min') or '');
-        if (selectedID == '/') {
-            me.selectFirstOpenDialog();
+        var selectedID = me.selectedMessageIDNode.getValue();
+        if (selectedID == nil or selectedID == '') {
+            me.selectFirstOpen();
             return;
         }
-        foreach (var h; me.dialogHeads) {
+        var h = nil;
+        foreach (var n; me.openNode.getChildren('item')) {
+            h = n.getValue();
             if (found) {
-                me.selectDialog(h);
+                me.selectMessage(h);
                 return;
             }
             if (h == selectedID) {
@@ -153,17 +232,65 @@ var CPDLC = {
         }
     },
 
-    selectPrevOpenDialog: func () {
-        var prevID = me.dialogHeads[0];
-        var selected = props.globals.getNode('/cpdlc/dialog/selected-cpdlc');
-        var selectedID = (selected.getValue('from') or '') ~ '/' ~ (selected.getValue('cpdlc/min') or '');
-        if (selectedID == '/') {
-            me.selectFirstOpenDialog();
+    selectPrevOpen: func () {
+        var prevID = '';
+        var selectedID = me.selectedMessageIDNode.getValue();
+        if (selectedID == nil or selectedID == '') {
+            me.selectFirstOpen();
             return;
         }
-        foreach (var h; me.dialogHeads) {
+        var h = nil;
+        foreach (var n; me.openNode.getChildren('item')) {
+            h = n.getValue();
             if (h == selectedID) {
-                me.selectDialog(prevID);
+                me.selectMessage(prevID);
+                return;
+            }
+            prevID = h;
+        }
+    },
+
+    selectFirstUnread: func () {
+        if (me.numUnreadNode.getValue() == 0) {
+            me.select(nil);
+            return;
+        }
+        var msgID = me.unreadNode.getValue('item');
+        me.selectMessage(msgID);
+    },
+
+    selectNextUnread: func () {
+        var found = 0;
+        var selectedID = me.selectedMessageIDNode.getValue();
+        if (selectedID == nil or selectedID == '') {
+            me.selectFirstUnread();
+            return;
+        }
+        var h = nil;
+        foreach (var n; me.unreadNode.getChildren('item')) {
+            h = n.getValue();
+            if (found) {
+                me.selectMessage(h);
+                return;
+            }
+            if (h == selectedID) {
+                found = 1;
+            }
+        }
+    },
+
+    selectPrevUnread: func () {
+        var prevID = '';
+        var selectedID = me.selectedMessageIDNode.getValue();
+        if (selectedID == nil or selectedID == '') {
+            me.selectFirstUnread();
+            return;
+        }
+        var h = nil;
+        foreach (var n; me.unreadNode.getChildren('item')) {
+            h = n.getValue();
+            if (h == selectedID) {
+                me.selectMessage(prevID);
                 return;
             }
             prevID = h;
@@ -191,7 +318,7 @@ var CPDLC = {
     cpdlcReply: func (msgID, ra, reply) {
         var msg = msgID;
         if (typeof(msgID) == 'scalar') {
-            msg = me.messages[msgID];
+            msg = me.getMessage(msgID);
         }
         if (msg == nil) {
             debug.warn('Message for reply not found: ' ~ msgID);
@@ -201,7 +328,8 @@ var CPDLC = {
             return;
         }
         if (me.closesDialog(msg.cpdlc.ra, reply)) {
-            me.closeDialogHead(msg);
+            var numRemoved = me.removeItem(me.openNode, msgID);
+            me.numOpenNode.decrement(numRemoved);
         }
         me.sendCPDLC(msg.from, msg.cpdlc.min, ra, reply);
     },
@@ -254,6 +382,7 @@ var CPDLC = {
                 type: node.getValue('type'),
                 packet: node.getValue('packet'),
                 status: node.getValue('status'),
+                serial: node.getValue('serial'),
             };
         if (msg.type == 'cpdlc') {
             msg.cpdlc = me.parseCPDLC(msg.packet);
@@ -261,17 +390,27 @@ var CPDLC = {
         return msg;
     },
 
-    closeDialogHead: func (msgID) {
-        if (msgID == nil) return;
-        if (typeof(msgID) != 'scalar') {
-            msgID = msgID.from ~ '/' ~ msgID.cpdlc.min;
+    messageToNode: func(node, msg) {
+        node.setValues(msg);
+    },
+
+    makeMessageID: func(arg1, arg2=nil, arg3=nil) {
+        if (typeof(arg1) == 'scalar' and typeof(arg2) == 'scalar' and typeof(arg3) == 'scalar') {
+            return arg1 ~ '-' ~ arg2 ~ '-' ~ arg3;
         }
-        var tmp = [];
-        foreach (var h; me.dialogHeads) {
-            if (h != msgID) append(tmp, h);
+        elsif (typeof(arg1) == 'hash' and arg2 == nil and arg3 == nil) {
+            var msg = arg1;
+            if (msg.type == 'cpdlc') {
+                return msg.from ~ '-C-' ~ msg.cpdlc.min;
+            }
+            else {
+                return msg.from ~ '-T-' ~ msg.serial;
+            }
         }
-        me.dialogHeads = tmp;
-        setprop('/cpdlc/num-open', size(me.dialogHeads));
+        else {
+            debug.warn('Invalid arguments to makeMessageID');
+            return nil;
+        }
     },
 
     handleDownlink: func() {
@@ -280,25 +419,13 @@ var CPDLC = {
         if (msg.status == 'sending') return;
 
         if (msg.status == 'error') {
-            append(me.downlinkErrors, msg);
+            return;
         }
-        elsif (msg.type == 'cpdlc') {
-            var msgID = msg.from ~ '/' ~ msg.cpdlc.min;
-            me.messages[msgID] = msg;
-            if (msg.cpdlc.mrn != '') {
-                var parentID = msg.to ~ '/' ~ msg.cpdlc.mrn;
-                me.closeDialogHead(parentID);
-            }
-            append(me.dialogHeads, msgID);
-            append(me.history, msgID);
-            setprop('/cpdlc/num-open', size(me.dialogHeads));
-            setprop('/cpdlc/num-unread', size(me.unread));
-        }
-        else {
-            append(me.telexDownlink, msg);
-            setprop('/cpdlc/dialog/telex-log',
-                (getprop('/cpdlc/dialog/telex-log') or '') ~
-                sprintf("%s ---> %s:\n%s\n", msg.from, msg.to, msg.packet));
+
+        var msgID = me.putMessage(msg);
+
+        if (msg.type == 'cpdlc') {
+            me.cpdlcHandleDownlink(msg);
         }
     },
 
@@ -306,26 +433,16 @@ var CPDLC = {
         var msg = me.messageFromNode(me.uplinkNode);
         msg.dir = 'uplink';
 
+        var serial = getprop('/cpdlc/next-serial');
+        setprop('/cpdlc/next-serial', serial + 1);
+        msg.serial = serial;
+
+        var msgID = me.putMessage(msg);
+        me.addItem(me.unreadNode, msgID);
+        me.numUnreadNode.increment();
+
         if (msg.type == 'cpdlc') {
-            var msgID = msg.from ~ '/' ~ msg.cpdlc.min;
-            me.messages[msgID] = msg;
-            if (msg.cpdlc.mrn != '') {
-                var parentID = msg.to ~ '/' ~ msg.cpdlc.mrn;
-                var tmp = [];
-                foreach (var h; me.dialogHeads) {
-                    if (h != parentID) append(tmp, h);
-                }
-                me.dialogHeads = tmp;
-                setprop('/cpdlc/num-open', size(me.dialogHeads));
-            }
-            append(me.history, msgID);
             me.cpdlcHandleUplink(msg);
-        }
-        else {
-            append(me.telexUplink, msg);
-            setprop('/cpdlc/dialog/telex-log',
-                (getprop('/cpdlc/dialog/telex-log') or '') ~
-                sprintf("%s <--- %s:\n%s\n", msg.to, msg.from, msg.packet));
         }
     },
 };
