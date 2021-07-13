@@ -22,6 +22,11 @@
             <telex-to type="string" />
             <telex-log type="string"/>
             <telex-message type="string"/>
+
+            <downlink-group type="string">ROUTE</downlink-group>
+            <downlink-element type="string"></downlink-element>
+            <downlink-fields/>
+            <downlink-reply type="string">N</downlink-reply>
         </dialog>
         <selected-message-id type="string" />
         <selected-message/>

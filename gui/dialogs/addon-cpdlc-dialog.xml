@@ -4,6 +4,118 @@
     <layout>vbox</layout>
 	<width>800</width>
 
+
+
+
+    <nasal>
+        <open><![CDATA[
+            var dlg = cmdarg();
+            var downlinkGroupCombo = gui.findElementByName(dlg, 'downlink-group');
+            var downlinkElemCombo = gui.findElementByName(dlg, 'downlink-element');
+            var downlinkFieldsGroup = gui.findElementByName(dlg, 'downlink-fields');
+
+            downlinkGroupCombo.removeChildren('value');
+            foreach (var group; keys(globals.CPDLC.downlinkElems)) {
+                downlinkGroupCombo.addChild('value').setValue(group);
+            }
+
+            var updateDownlinkElementCombo = func (node) {
+                print("UPDATE DOWNLINK GROUP");
+                var group = node.getValue();
+                var items = globals.CPDLC.downlinkElems[group];
+                setprop('/cpdlc/dialog/downlink-element', '');
+                downlinkElemCombo.removeChildren('value');
+                downlinkElemCombo.addChild('value').setValue('');
+                if (typeof(items) == 'vector') {
+                    foreach (var row; items) {
+                        debug.dump(row[1]);
+                        downlinkElemCombo.addChild('value').setValue(row[1]);
+                    }
+                }
+                gui.dialog_update('addon-cpdlc-dialog');
+            };
+            var groupListener = setlistener('/cpdlc/dialog/downlink-group', updateDownlinkElementCombo, 1, 0);
+
+            var updateDownlinkFields = func (node) {
+                print("UPDATE DOWNLINK ELEM");
+                var group = getprop('/cpdlc/dialog/downlink-group');
+                var elem = node.getValue();
+                var items = globals.CPDLC.downlinkElems[group];
+                var item = nil;
+
+                if (typeof(items) == 'vector') {
+                    foreach (var r; items) {
+                        if (r[1] == elem) {
+                            item = r;
+                            break;
+                        }
+                    }
+                }
+                debug.dump(item);
+                if (item == nil) {
+                    setprop('/cpdlc/dialog/downlink-reply', 'N');
+                }
+                else {
+                    setprop('/cpdlc/dialog/downlink-reply', item[3]);
+                }
+                for (var i = 0; i < 6; i += 1) {
+                    var field = (item != nil and i < size(item[4])) ? item[4][i] : '';
+                    debug.dump(field);
+                    if (field == '') {
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/label', substr(field, 1));
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/value', '');
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/visible', 0);
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/editable', 0);
+                    }
+                    elsif (substr(field, 0, 1) == '$') {
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/label', substr(field, 1));
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/value', '');
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/visible', 1);
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/editable', 1);
+                    }
+                    else {
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/label', '');
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/value', field);
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/visible', 1);
+                        setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/editable', 0);
+                    }
+                }
+                gui.dialog_update('addon-cpdlc-dialog');
+            };
+            var elemListener = setlistener('/cpdlc/dialog/downlink-element', updateDownlinkFields, 1, 0);
+
+            var sendDownlink = func () {
+                var parts = [];
+                for (var i = 0; i < 6; i += 1) {
+                    append(parts, getprop('/cpdlc/dialog/downlink-field[' ~ i  ~ ']/value'));
+                }
+                var msg = string.join(' ', parts);
+                var station = getprop('/cpdlc/current-station');
+                var reply = getprop('/cpdlc/dialog/downlink-reply') or 'N';
+
+                if (station == nil or station == '') {
+                    debug.warn('No current CPDLC station');
+                    return;
+                }
+
+                globals.cpdlc.sendCPDLC(station, '', reply, msg);
+
+                setprop('/cpdlc/dialog/downlink-group',
+                    getprop('/cpdlc/dialog/downlink-group'));
+                setprop('/cpdlc/dialog/downlink-element', '');
+                fgcommand('dialog-apply');
+                gui.dialog_update('addon-cpdlc-dialog');
+            };
+
+
+        ]]></open>
+
+        <close><![CDATA[
+            removelistener(groupListener);
+            removelistener(elemListener);
+        ]]></close>
+    </nasal>
+
 	<group>
 		<layout>hbox</layout>
 		<empty>
@@ -81,20 +193,12 @@
 
     <group>
         <layout>hbox</layout>
-        <pref-height>300</pref-height>
+        <pref-height>350</pref-height>
         <group>
             <layout>vbox</layout>
             <halign>fill</halign>
             <valign>top</valign>
             <pref-width>100</pref-width>
-            <button>
-                <halign>fill</halign>
-                <legend>Request</legend>
-                <binding>
-                    <command>nasal</command>
-                    <script>globals.cpdlc.selectMessage(nil);</script>
-                </binding>
-            </button>
             <group>
                 <halign>fill</halign>
                 <layout>hbox</layout>
@@ -110,49 +214,53 @@
                     <live>true</live>
                 </text>
             </group>
-            <button>
+            <group>
                 <halign>fill</halign>
-                <legend>First Open</legend>
-                <binding>
-                    <command>nasal</command>
-                    <script>globals.cpdlc.selectFirstOpen();</script>
-                </binding>
-                <visible>
-                    <greater-than>
-                        <property>/cpdlc/num-open</property>
-                        <value>0</value>
-                    </greater-than>
-                </visible>
-            </button>
-            <button>
-                <halign>fill</halign>
-                <legend>Prev Open</legend>
-                <binding>
-                    <command>nasal</command>
-                    <script>globals.cpdlc.selectPrevOpen();</script>
-                </binding>
-                <visible>
-                    <greater-than>
-                        <property>/cpdlc/num-open</property>
-                        <value>0</value>
-                    </greater-than>
-                </visible>
-            </button>
-            <button>
-                <halign>fill</halign>
-                <legend>Next Open</legend>
-                <binding>
-                    <command>nasal</command>
-                    <script>globals.cpdlc.selectNextOpen();</script>
-                </binding>
-                <visible>
-                    <greater-than>
-                        <property>/cpdlc/num-open</property>
-                        <value>0</value>
-                    </greater-than>
-                </visible>
-            </button>
-
+                <layout>hbox</layout>
+                <button>
+                    <halign>fill</halign>
+                    <legend>&lt;&lt;</legend>
+                    <binding>
+                        <command>nasal</command>
+                        <script>globals.cpdlc.selectFirstOpen();</script>
+                    </binding>
+                    <visible>
+                        <greater-than>
+                            <property>/cpdlc/num-open</property>
+                            <value>0</value>
+                        </greater-than>
+                    </visible>
+                </button>
+                <button>
+                    <halign>fill</halign>
+                    <legend>&lt;</legend>
+                    <binding>
+                        <command>nasal</command>
+                        <script>globals.cpdlc.selectPrevOpen();</script>
+                    </binding>
+                    <visible>
+                        <greater-than>
+                            <property>/cpdlc/num-open</property>
+                            <value>0</value>
+                        </greater-than>
+                    </visible>
+                </button>
+                <button>
+                    <halign>fill</halign>
+                    <legend>&gt;</legend>
+                    <binding>
+                        <command>nasal</command>
+                        <script>globals.cpdlc.selectNextOpen();</script>
+                    </binding>
+                    <visible>
+                        <greater-than>
+                            <property>/cpdlc/num-open</property>
+                            <value>0</value>
+                        </greater-than>
+                    </visible>
+                </button>
+            </group>
+            <hrule/>
             <group>
                 <halign>fill</halign>
                 <layout>hbox</layout>
@@ -170,7 +278,7 @@
             </group>
             <button>
                 <halign>fill</halign>
-                <legend>First Unread</legend>
+                <legend>Next</legend>
                 <binding>
                     <command>nasal</command>
                     <script>globals.cpdlc.selectFirstUnread();</script>
@@ -182,36 +290,23 @@
                     </greater-than>
                 </visible>
             </button>
+            <hrule/>
             <button>
                 <halign>fill</halign>
-                <legend>Prev Unread</legend>
+                <legend>Deselect</legend>
                 <binding>
                     <command>nasal</command>
-                    <script>globals.cpdlc.selectPrevUnread();</script>
+                    <script>globals.cpdlc.selectMessage(nil);</script>
                 </binding>
-                <visible>
-                    <greater-than>
-                        <property>/cpdlc/num-unread</property>
-                        <value>0</value>
-                    </greater-than>
-                </visible>
-            </button>
-            <button>
-                <halign>fill</halign>
-                <legend>Next Unread</legend>
-                <binding>
-                    <command>nasal</command>
-                    <script>globals.cpdlc.selectNextUnread();</script>
-                </binding>
-                <visible>
-                    <greater-than>
-                        <property>/cpdlc/num-unread</property>
-                        <value>0</value>
-                    </greater-than>
-                </visible>
             </button>
         </group>
         <group>
+            <visible>
+                <not-equals>
+                    <property>/cpdlc/selected-message-id</property>
+                    <value type="string"></value>
+                </not-equals>
+            </visible>
             <layout>vbox</layout>
             <halign>fill</halign>
             <group>
@@ -251,156 +346,251 @@
                 <wrap>true</wrap>
                 <editable>false</editable>
             </textbox>
-            <button>
-                <legend>(dismiss)</legend>
+            <hrule/>
+            <group>
+                <layout>table</layout>
+                <halign>fill</halign>
                 <valign>top</valign>
-            </button>
+                <pref-width>200</pref-width>
+                <button>
+                    <legend>ROGER</legend>
+                    <row>0</row>
+                    <col>0</col>
+                    <halign>fill</halign>
+                    <visible>
+                        <equals>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
+                            <value>R</value>
+                        </equals>
+                    </visible>
+                    <binding>
+                        <command>nasal</command>
+                        <script>
+                            globals.cpdlc.cpdlcRoger(getprop('/cpdlc/selected-message/id'));
+                        </script>
+                    </binding>
+                </button>
+                <button>
+                    <legend>WILCO</legend>
+                    <row>0</row>
+                    <col>0</col>
+                    <halign>fill</halign>
+                    <visible>
+                        <equals>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
+                            <value>WU</value>
+                        </equals>
+                    </visible>
+                    <binding>
+                        <command>nasal</command>
+                        <script>
+                            globals.cpdlc.cpdlcWilco(getprop('/cpdlc/selected-message/id'));
+                        </script>
+                    </binding>
+                </button>
+                <button>
+                    <legend>UNABLE</legend>
+                    <row>1</row>
+                    <col>0</col>
+                    <halign>fill</halign>
+                    <visible>
+                        <or>
+                            <equals>
+                                <property>/cpdlc/selected-message/cpdlc/ra</property>
+                                <value>WU</value>
+                            </equals>
+                            <equals>
+                                <property>/cpdlc/selected-message/cpdlc/ra</property>
+                                <value>R</value>
+                            </equals>
+                        </or>
+                    </visible>
+                    <binding>
+                        <command>dialog-apply</command>
+                        <object-name>unable-reason</object-name>
+                    </binding>
+                    <binding>
+                        <command>nasal</command>
+                        <script>
+                            globals.cpdlc.cpdlcUnable(
+                                getprop('/cpdlc/selected-message/id'),
+                                getprop('/cpdlc/dialog/unable-reason'));
+                        </script>
+                    </binding>
+                </button>
+                <text>
+                    <label>DUE TO</label>
+                    <row>1</row>
+                    <col>1</col>
+                    <visible>
+                        <or>
+                            <equals>
+                                <property>/cpdlc/selected-message/cpdlc/ra</property>
+                                <value>WU</value>
+                            </equals>
+                            <equals>
+                                <property>/cpdlc/selected-message/cpdlc/ra</property>
+                                <value>R</value>
+                            </equals>
+                        </or>
+                    </visible>
+                </text>
+                <input>
+                    <row>1</row>
+                    <col>2</col>
+                    <halign>fill</halign>
+                    <visible>
+                        <or>
+                            <equals>
+                                <property>/cpdlc/selected-message/cpdlc/ra</property>
+                                <value>WU</value>
+                            </equals>
+                            <equals>
+                                <property>/cpdlc/selected-message/cpdlc/ra</property>
+                                <value>R</value>
+                            </equals>
+                        </or>
+                    </visible>
+                    <property>/cpdlc/dialog/unable-reason</property>
+                    <name>unable-reason</name>
+                    <binding>
+                        <command>dialog-apply</command>
+                        <object-name>unable-reason</object-name>
+                    </binding>
+                </input>
+                <button>
+                    <legend>AFFIRM</legend>
+                    <row>0</row>
+                    <col>0</col>
+                    <halign>fill</halign>
+                    <visible>
+                        <equals>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
+                            <value>AN</value>
+                        </equals>
+                    </visible>
+                    <binding>
+                        <command>nasal</command>
+                        <script>
+                            globals.cpdlc.cpdlcAffirm(getprop('/cpdlc/selected-message/id'));
+                        </script>
+                    </binding>
+                </button>
+                <button>
+                    <legend>NEGATIVE</legend>
+                    <row>1</row>
+                    <col>0</col>
+                    <halign>fill</halign>
+                    <visible>
+                        <equals>
+                            <property>/cpdlc/selected-message/cpdlc/ra</property>
+                            <value>AN</value>
+                        </equals>
+                    </visible>
+                    <binding>
+                        <command>nasal</command>
+                        <script>
+                            globals.cpdlc.cpdlcNegative(getprop('/cpdlc/selected-message/id'));
+                        </script>
+                    </binding>
+                </button>
+            </group>
         </group>
         <group>
-            <layout>table</layout>
+            <layout>vbox</layout>
             <halign>fill</halign>
             <valign>top</valign>
-            <pref-width>200</pref-width>
-            <button>
-                <legend>ROGER</legend>
-                <row>0</row>
-                <col>0</col>
-                <halign>fill</halign>
-                <visible>
-                    <equals>
-                        <property>/cpdlc/selected-message/cpdlc/ra</property>
-                        <value>R</value>
-                    </equals>
-                </visible>
-                <binding>
-                    <command>nasal</command>
-                    <script>
-                        globals.cpdlc.cpdlcRoger(getprop('/cpdlc/selected-message/id'));
-                    </script>
-                </binding>
-            </button>
-            <button>
-                <legend>WILCO</legend>
-                <row>0</row>
-                <col>0</col>
-                <halign>fill</halign>
-                <visible>
-                    <equals>
-                        <property>/cpdlc/selected-message/cpdlc/ra</property>
-                        <value>WU</value>
-                    </equals>
-                </visible>
-                <binding>
-                    <command>nasal</command>
-                    <script>
-                        globals.cpdlc.cpdlcWilco(getprop('/cpdlc/selected-message/id'));
-                    </script>
-                </binding>
-            </button>
-            <button>
-                <legend>UNABLE</legend>
-                <row>1</row>
-                <col>0</col>
-                <halign>fill</halign>
-                <visible>
-                    <or>
-                        <equals>
-                            <property>/cpdlc/selected-message/cpdlc/ra</property>
-                            <value>WU</value>
-                        </equals>
-                        <equals>
-                            <property>/cpdlc/selected-message/cpdlc/ra</property>
-                            <value>R</value>
-                        </equals>
-                    </or>
-                </visible>
-                <binding>
-                    <command>dialog-apply</command>
-                    <object-name>unable-reason</object-name>
-                </binding>
-                <binding>
-                    <command>nasal</command>
-                    <script>
-                        globals.cpdlc.cpdlcUnable(
-                            getprop('/cpdlc/selected-message/id'),
-                            getprop('/cpdlc/dialog/unable-reason'));
-                    </script>
-                </binding>
-            </button>
             <text>
-                <label>DUE TO</label>
-                <row>1</row>
-                <col>1</col>
-                <visible>
-                    <or>
-                        <equals>
-                            <property>/cpdlc/selected-message/cpdlc/ra</property>
-                            <value>WU</value>
-                        </equals>
-                        <equals>
-                            <property>/cpdlc/selected-message/cpdlc/ra</property>
-                            <value>R</value>
-                        </equals>
-                    </or>
-                </visible>
+                <label>DOWNLINK</label>
             </text>
-            <input>
-                <row>1</row>
-                <col>2</col>
-                <halign>fill</halign>
-                <visible>
-                    <or>
-                        <equals>
-                            <property>/cpdlc/selected-message/cpdlc/ra</property>
-                            <value>WU</value>
-                        </equals>
-                        <equals>
-                            <property>/cpdlc/selected-message/cpdlc/ra</property>
-                            <value>R</value>
-                        </equals>
-                    </or>
-                </visible>
-                <property>/cpdlc/dialog/unable-reason</property>
-                <name>unable-reason</name>
+            <combo>
+                <halign>left</halign>
+                <pref-width>200</pref-width>
+                <name>downlink-group</name>
+                <property>/cpdlc/dialog/downlink-group</property>
                 <binding>
                     <command>dialog-apply</command>
-                    <object-name>unable-reason</object-name>
+                    <object-name>downlink-group</object-name>
                 </binding>
-            </input>
-            <button>
-                <legend>AFFIRM</legend>
-                <row>0</row>
-                <col>0</col>
+            </combo>
+            <combo>
+                <halign>left</halign>
+                <pref-width>200</pref-width>
+                <name>downlink-element</name>
+                <property>/cpdlc/dialog/downlink-element</property>
+                <binding>
+                    <command>dialog-apply</command>
+                    <object-name>downlink-element</object-name>
+                </binding>
+            </combo>
+            <group>
+                <layout>vbox</layout>
                 <halign>fill</halign>
-                <visible>
-                    <equals>
-                        <property>/cpdlc/selected-message/cpdlc/ra</property>
-                        <value>AN</value>
-                    </equals>
-                </visible>
+                <valign>top</valign>
+                <name>downlink-fields</name>
+                <input>
+                    <property>/cpdlc/dialog/downlink-field[0]/value</property>
+                    <label><property>/cpdlc/dialog/downlink-field[0]/label</property></label>
+                    <visible><property>/cpdlc/dialog/downlink-field[0]/visible</property></visible>
+                    <editable><property>/cpdlc/dialog/downlink-field[0]/editable</property></editable>
+                    <pref-width>200</pref-width>
+                    <halign>left</halign>
+                    <binding><command>dialog-apply</command></binding>
+                </input>
+                <input>
+                    <property>/cpdlc/dialog/downlink-field[1]/value</property>
+                    <label><property>/cpdlc/dialog/downlink-field[1]/label</property></label>
+                    <visible><property>/cpdlc/dialog/downlink-field[1]/visible</property></visible>
+                    <editable><property>/cpdlc/dialog/downlink-field[1]/editable</property></editable>
+                    <pref-width>200</pref-width>
+                    <halign>left</halign>
+                    <binding><command>dialog-apply</command></binding>
+                </input>
+                <input>
+                    <property>/cpdlc/dialog/downlink-field[2]/value</property>
+                    <label><property>/cpdlc/dialog/downlink-field[2]/label</property></label>
+                    <visible><property>/cpdlc/dialog/downlink-field[2]/visible</property></visible>
+                    <editable><property>/cpdlc/dialog/downlink-field[2]/editable</property></editable>
+                    <pref-width>200</pref-width>
+                    <halign>left</halign>
+                    <binding><command>dialog-apply</command></binding>
+                </input>
+                <input>
+                    <property>/cpdlc/dialog/downlink-field[3]/value</property>
+                    <label><property>/cpdlc/dialog/downlink-field[3]/label</property></label>
+                    <visible><property>/cpdlc/dialog/downlink-field[3]/visible</property></visible>
+                    <editable><property>/cpdlc/dialog/downlink-field[3]/editable</property></editable>
+                    <pref-width>200</pref-width>
+                    <halign>left</halign>
+                    <binding><command>dialog-apply</command></binding>
+                </input>
+                <input>
+                    <property>/cpdlc/dialog/downlink-field[4]/value</property>
+                    <label><property>/cpdlc/dialog/downlink-field[4]/label</property></label>
+                    <visible><property>/cpdlc/dialog/downlink-field[4]/visible</property></visible>
+                    <editable><property>/cpdlc/dialog/downlink-field[4]/editable</property></editable>
+                    <pref-width>200</pref-width>
+                    <halign>left</halign>
+                    <binding><command>dialog-apply</command></binding>
+                </input>
+                <input>
+                    <property>/cpdlc/dialog/downlink-field[5]/value</property>
+                    <label><property>/cpdlc/dialog/downlink-field[5]/label</property></label>
+                    <visible><property>/cpdlc/dialog/downlink-field[5]/visible</property></visible>
+                    <editable><property>/cpdlc/dialog/downlink-field[5]/editable</property></editable>
+                    <pref-width>200</pref-width>
+                    <halign>left</halign>
+                    <binding><command>dialog-apply</command></binding>
+                </input>
+            </group>
+            <button>
+                <legend>Send</legend>
+                <binding>
+                    <command>dialog-apply</command>
+                </binding>
                 <binding>
                     <command>nasal</command>
-                    <script>
-                        globals.cpdlc.cpdlcAffirm(getprop('/cpdlc/selected-message/id'));
-                    </script>
-                </binding>
-            </button>
-            <button>
-                <legend>NEGATIVE</legend>
-                <row>1</row>
-                <col>0</col>
-                <halign>fill</halign>
-                <visible>
-                    <equals>
-                        <property>/cpdlc/selected-message/cpdlc/ra</property>
-                        <value>AN</value>
-                    </equals>
-                </visible>
-                <binding>
-                    <command>nasal</command>
-                    <script>
-                        globals.cpdlc.cpdlcNegative(getprop('/cpdlc/selected-message/id'));
-                    </script>
+                    <script>sendDownlink();</script>
                 </binding>
             </button>
         </group>

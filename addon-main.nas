@@ -1,4 +1,73 @@
 var CPDLC = {
+    # Static fields
+    downlinkElems: {
+        'ROUTE': [
+            [ 'RTED-1',  'REQ DIRECT TO',      'M', 'Y', [ 'REQUEST DIRECT TO', '$POSITION' ] ],
+            [ 'RTED-2',  'REQ PROCEDURE',      'M', 'Y', [ 'REQUEST ', '$NAMED_INSTRUCTION' ] ],
+            [ 'RTED-3',  'REQ ROUTE',          'M', 'Y', [ 'REQUEST CLEARANCE', '$DEPARTURE_DATA', '$ENROUTE_DATA', '$ARRIVAL_APPROACH_DATA' ] ],
+            [ 'RTED-4',  'REQ CLEARANCE',      'M', 'Y', [ 'REQUEST', '$CLEARANCE_TYPE', 'CLEARANCE' ] ],
+            [ 'RTED-5',  'POS REPORT',         'M', 'N', [ 'POSITION REPORT', '$POSREP' ] ],
+            [ 'RTED-6',  'REQ HEADING',        'M', 'Y', [ 'REQUEST HEADING', '$DEGREES' ] ],
+            [ 'RTED-7',  'REQ GROUND TRK',     'M', 'Y', [ 'REQUEST GROUND TRACK', '$DEGREES' ] ],
+            [ 'RTED-8',  'WCWE BACK ON ROUTE', 'M', 'Y', [ 'WHEN CAN WE EXPECT BACK ON ROUTE' ] ],
+            [ 'RTED-9',  'ASSIGNED ROUTE',     'M', 'N', [ 'ASSIGNED ROUTE', '$DEPARTURE_DATA', '$ENROUTE_DATA', '$ARRIVAL_APPROACH_DATA' ] ],
+            [ 'RTED-10', 'ETA',                'M', 'N', [ 'ETA', '$POSITION', 'TIME', '$TIME' ] ],
+        ],
+        'LATERAL': [
+            [ 'LATD-1',  'REQ OFFSET',         'M', 'Y', [ 'REQUEST OFFSET', '$DISTANCE', '$DIRECTION', 'OF ROUTE' ] ],
+            [ 'LATD-2',  'REQ WEATHER DEVTN',  'M', 'Y', [ 'REQUEST WEATHER DEVIATION UP TO', '$LATERAL_DEVIATION', 'OF ROUTE' ] ],
+            [ 'LATD-3',  'CLEAR OF WEATHER',   'M', 'N', [ 'CLEAR OF WEATHER' ] ],
+            [ 'LATD-4',  'BACK ON ROUTE',      'M', 'N', [ 'BACK ON ROUTE' ] ],
+            [ 'LATD-5',  'DIVERTING',          'M', 'Y', [ 'DIVERTING TO', '$POSITION', 'VIA', '$ENROUTE_DATA', '$ARRIVAL_APPROACH_DATA' ] ],
+            [ 'LATD-6',  'OFFSETTING',         'M', 'Y', [ 'OFFSETTING', '$DISTANCE', '$DIRECTION', 'OF ROUTE' ] ],
+            [ 'LATD-7',  'DEVIATING',          'M', 'Y', [ 'DEVIATING', '$LATERAL_DEVIATION', 'OF ROUTE' ] ],
+            [ 'LATD-8',  'PASSING',            'M', 'N', [ 'PASSING', '$POSITION' ] ],
+        ],
+        'LEVEL': [
+            [ 'LVLD-1',  'REQ LEVEL',          'M', 'Y', [ 'REQUEST', '$LEVEL' ] ],
+            [ 'LVLD-2',  'REQ CLIMB',          'M', 'Y', [ 'REQUEST CLIMB TO', '$LEVEL' ] ],
+            [ 'LVLD-3',  'REQ DESCENT',        'M', 'Y', [ 'REQUEST DESCENT TO', '$LEVEL' ] ],
+            [ 'LVLD-4',  'REQ LEVEL AT POS',   'M', 'Y', [ 'AT', '$POSITION', 'REQUEST', '$LEVEL' ] ],
+            [ 'LVLD-5',  'REQ LEVEL AT TIME',  'M', 'Y', [ 'AT TIME', '$TIME', 'REQUEST', '$LEVEL' ] ],
+            [ 'LVLD-6',  'WCWE LOWER',         'M', 'Y', [ 'WHEN CAN WE EXPECT LOWER LEVEL' ] ],
+            [ 'LVLD-7',  'WCWE HIGHER',        'M', 'Y', [ 'WHEN CAN WE EXPECT HIGHER LEVEL' ] ],
+            [ 'LVLD-8',  'LEAVING',            'M', 'N', [ 'LEAVING', '$LEVEL_SINGLE' ] ],
+            [ 'LVLD-9',  'MAINTAINING',        'M', 'N', [ 'MAINTAINING', '$LEVEL_SINGLE' ] ],
+            [ 'LVLD-10', 'REACHING BLOCK',     'M', 'N', [ 'REACHING BLOCK', '$LEVEL_SINGLE', 'TO', '$LEVEL_SINGLE' ] ],
+            [ 'LVLD-11', 'ASSIGNED LEVEL',     'M', 'N', [ 'ASSIGNED LEVEL', '$LEVEL' ] ],
+            [ 'LVLD-12', 'PREFERRED LEVEL',    'M', 'N', [ 'PREFERRED LEVEL', '$LEVEL' ] ],
+            [ 'LVLD-13', 'CLIMBING TO',        'M', 'N', [ 'CLIMBING TO', '$LEVEL_SINGLE' ] ],
+            [ 'LVLD-14', 'DESCENDING TO',      'M', 'N', [ 'DESCENDING TO', '$LEVEL_SINGLE' ] ],
+            [ 'LVLD-15', 'CAN ACCEPT AT TIME', 'M', 'N', [ 'WE CAN ACCEPT', '$LEVEL_SINGLE', 'AT TIME', '$TIME' ] ],
+            [ 'LVLD-16', 'CAN ACCEPT AT POS',  'M', 'N', [ 'WE CAN ACCEPT', '$LEVEL_SINGLE', 'AT', '$POSITION' ] ],
+            [ 'LVLD-17', 'CANNOT ACCEPT',      'M', 'N', [ 'WE CANNOT ACCEPT', '$LEVEL_SINGLE' ] ],
+            [ 'LVLD-18', 'TOP OF DESCENT',     'M', 'N', [ 'TOP OF DESCENT', '$POSITION', 'TIME', '$TIME' ] ],
+        ],
+        'SPEED': [
+            [ 'SPDD-1',  'REQ SPEED',          'M', 'Y', [ 'REQUEST', '$SPEED' ] ],
+            [ 'SPDD-2',  'WCWE SPEED',         'M', 'Y', [ 'WHEN CAN WE EXPECT', '$SPEED' ] ],
+            [ 'SPDD-3',  'SPEED',              'M', 'N', [ '$SPEED_TYPES', 'SPEED', '$SPEED' ] ],
+            [ 'SPDD-4',  'ASSIGNED SPEED',     'M', 'N', [ 'ASSIGNED SPEED', '$SPEED' ] ],
+            [ 'SPDD-5',  'CAN ACCEPT AT TIME', 'M', 'N', [ 'WE CAN ACCEPT', '$SPEED', 'AT TIME', '$TIME' ] ],
+            [ 'SPDD-6',  'CANNOT ACCEPT',      'M', 'N', [ 'WE CANNOT ACCEPT', '$SPEED' ] ],
+        ],
+        'ADVISORY': [
+            [ 'ADVD-1',  'SQUAWKING',          'M', 'N', [ 'SQUAWKING', '$SSR_CODE' ] ],
+            [ 'ADVD-2',  'TRAFFIC',            'M', 'N', [ 'TRAFFIC', '$AIRCRAFT_TYPE', '$TRAFFIC_LOCATION', '$TRAFFIC_VISIBILITY' ] ],
+        ],
+        'VOICE': [
+            [ 'COMD-1',  'REQ VOICE CONTACT',  'M', 'Y', [ 'REQUEST VOICE CONTACT', '$FREQUENCY' ] ],
+            [ 'COMD-2',  'RELAY FROM',         'M', 'N', [ 'RELAY FROM', '$AIRCRAFT_IDENTIFICATION', '$RELAYED_TEXT' ] ],
+        ],
+        'EMERGENCY': [
+            [ 'EMGD-1',  'PAN PAN',            'H', 'Y', [ 'PAN PAN PAN' ] ],
+            [ 'EMGD-2',  'MAYDAY',             'H', 'Y', [ 'MAYDAY MAYDAY MAYDAY' ] ],
+            [ 'EMGD-3',  'FUEL AND SOULS',     'H', 'Y', [ '$REMAINING_FUEL', 'ENDURANCE AND' '$PERSONS_ON_BOARD', 'PERSONS ON BOARD' ] ],
+            [ 'EMGD-4',  'CANCEL EMERGENCY',   'H', 'Y', [ 'CANCEL EMERGENCY' ] ],
+        ],
+    },
+
+    # Methods
     new: func () {
         return {
             parents: [CPDLC],
@@ -80,7 +149,7 @@ var CPDLC = {
         if (m == 'LOGON ACCEPTED') {
             setprop('/cpdlc/last-station', getprop('/cpdlc/current-station'));
             setprop('/cpdlc/last-station-name', getprop('/cpdlc/current-station-name'));
-            setprop('/cpdlc/current-station', '');
+            setprop('/cpdlc/current-station', msg.from or '');
             setprop('/cpdlc/current-station-name', msg.from or '');
         }
         elsif (m == 'LOGOFF') {
@@ -191,11 +260,15 @@ var CPDLC = {
         else {
             node.setValues(msg);
             node.setValue('id', msgID);
+            debug.dump(msg);
             if (msg['cpdlc'] != nil) {
-                node.setValue('message', msg.cpdlc.message);
+                node.setValue('message', string.join('/', msg.cpdlc.message));
+            }
+            elsif (msg.packet != nil) {
+                node.setValue('message', msg.packet);
             }
             else {
-                node.setValue('message', msg.packet);
+                node.setValue('message', '');
             }
         }
         var numRemoved = me.removeItem(me.unreadNode, msgID);
@@ -446,6 +519,8 @@ var CPDLC = {
         }
     },
 };
+
+globals.CPDLC = CPDLC;
 
 var findMenuNode = func (create=0) {
     var equipmentMenuNode = props.globals.getNode('/sim/menubar/default/menu[5]');
