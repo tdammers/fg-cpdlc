@@ -12,10 +12,13 @@
     </acars>
     <cpdlc>
         <logon-station type="string"/>
+        <logon-status type="string"></logon-status>
         <current-station type="string"/>
         <current-station-name type="string"/>
         <last-station type="string"/>
         <last-station-name type="string"/>
+        <next-station type="string"/>
+        <next-station-name type="string"/>
         <next-min type="int">1</next-min>
         <next-serial type="int">1</next-serial>
         <dialog>

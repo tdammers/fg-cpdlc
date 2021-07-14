@@ -132,11 +132,11 @@ var CPDLC = {
         return string.join('/', ['', 'data2', min, mrn, ra, message]);
     },
 
-    sendCPDLC: func (to, mrn, ra, message) {
+    sendCPDLC: func (to, mrn, ra, message, done=nil) {
         var min = getprop('/cpdlc/next-min');
         setprop('/cpdlc/next-min', min + 1);
         var cpdlc = me.packCPDLC(min, mrn, ra, message);
-        globals.acars.send(to, 'cpdlc', cpdlc);
+        globals.acars.send(to, 'cpdlc', cpdlc, done);
     },
 
 
@@ -151,14 +151,22 @@ var CPDLC = {
             setprop('/cpdlc/last-station-name', getprop('/cpdlc/current-station-name'));
             setprop('/cpdlc/current-station', msg.from or '');
             setprop('/cpdlc/current-station-name', msg.from or '');
+            setprop('/cpdlc/next-station', '');
+            setprop('/cpdlc/next-station-name', '');
+            setprop('/cpdlc/logon-status', 'ACCEPTED');
+            setprop('/cpdlc/logon-station', '');
         }
         elsif (m == 'LOGOFF') {
             setprop('/cpdlc/last-station', getprop('/cpdlc/current-station'));
             setprop('/cpdlc/last-station-name', getprop('/cpdlc/current-station-name'));
             setprop('/cpdlc/current-station', '');
             setprop('/cpdlc/current-station-name', '');
+            setprop('/cpdlc/next-station', '');
+            setprop('/cpdlc/next-station-name', '');
         }
         elsif (startswith(m, 'HANDOVER') and string.scanf(m, 'HANDOVER @%4s', vars)) {
+            setprop('/cpdlc/next-station', vars[0]);
+            setprop('/cpdlc/next-station-name', '');
             me.cpdlcRequestLogon(vars[0]);
         }
         elsif (startswith(m, 'CURRENT ATC UNIT') and (string.scanf(m, 'CURRENT ATC UNIT@_@%4s@_@%', vars) != 0)) {
@@ -371,21 +379,23 @@ var CPDLC = {
     },
 
     cpdlcRequestLogon: func (station=nil) {
+        setprop('/cpdlc/logon-status', 'SENDING');
         if (station == nil) {
             station = getprop('/cpdlc/logon-station');
         }
-        me.sendCPDLC(station, '', 'Y', 'REQUEST LOGON');
+        me.sendCPDLC(station, '', 'Y', 'REQUEST LOGON', func { setprop('/cpdlc/logon-status', 'SENT'); });
     },
 
     cpdlcLogoff: func (station=nil) {
+        setprop('/cpdlc/logon-status', 'SENDING');
         if (station == nil) {
             station = getprop('/cpdlc/current-station');
         }
-        me.sendCPDLC(station, '', 'N', 'LOGOFF');
         setprop('/cpdlc/last-station', getprop('/cpdlc/current-station'));
         setprop('/cpdlc/last-station-name', getprop('/cpdlc/current-station-name'));
         setprop('/cpdlc/current-station', '');
         setprop('/cpdlc/current-station-name', '');
+        me.sendCPDLC(station, '', 'N', 'LOGOFF', func { setprop('/cpdlc/logon-status', 'SENT'); });
     },
 
     cpdlcReply: func (msgID, ra, reply) {
