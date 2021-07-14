@@ -263,6 +263,8 @@ var CPDLC = {
                 status: '',
                 type: '',
                 message: '',
+                timestamp: '',
+                timestamp4: '',
             });
         }
         else {
@@ -466,6 +468,8 @@ var CPDLC = {
                 packet: node.getValue('packet'),
                 status: node.getValue('status'),
                 serial: node.getValue('serial'),
+                timestamp: node.getValue('timestamp'),
+                timestamp4: substr(node.getValue('timestamp') or '?????????T??????', 9, 4),
             };
         if (msg.type == 'cpdlc') {
             msg.cpdlc = me.parseCPDLC(msg.packet);
