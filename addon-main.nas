@@ -87,19 +87,22 @@ var CPDLC = {
         };
     },
 
-    addItem: func (node, val) {
+    addItem: func (node, counterNode, val) {
         node.addChild('item').setValue(val);
+        if (counterNode != nil) {
+            counterNode.setValue(size(node.getChildren('item')));
+        }
     },
 
-    removeItem: func (node, val) {
-        var numRemoved = 0;
+    removeItem: func (node, counterNode, val) {
         foreach (var c; node.getChildren('item')) {
             if (c.getValue() == val) {
                 c.remove();
-                numRemoved += 1;
             }
         }
-        return numRemoved;
+        if (counterNode != nil) {
+            counterNode.setValue(size(node.getChildren('item')));
+        }
     },
 
     parseCPDLC: func (str) {
@@ -163,6 +166,8 @@ var CPDLC = {
             setprop('/cpdlc/current-station-name', '');
             setprop('/cpdlc/next-station', '');
             setprop('/cpdlc/next-station-name', '');
+            setprop('/cpdlc/logon-status', '');
+            setprop('/cpdlc/logon-station', '');
         }
         elsif (startswith(m, 'HANDOVER') and string.scanf(m, 'HANDOVER @%4s', vars)) {
             setprop('/cpdlc/next-station', vars[0]);
@@ -185,16 +190,15 @@ var CPDLC = {
         }
         else {
             # response required, add to open dialog heads.
-            me.addItem(me.openNode, msgID);
-            me.numOpenNode.increment();
+            me.addItem(me.openNode, me.numOpenNode, msgID);
         }
+        me.addItem(me.historyNode, nil, msgID);
 
         if (msg.cpdlc.mrn != '') {
             var parentID = me.makeMessageID(msg.to, 'C', msg.cpdlc.mrn);
             var parent = me.getMessage(parentID);
             if (parent != nil and me.closesDialog(parent.cpdlc.ra, m)) {
-                var numRemoved = me.removeItem(me.openNode, parentID);
-                me.numOpenNode.decrement(numRemoved);
+                me.removeItem(me.openNode, me.numOpenNode, parentID);
             }
         }
     },
@@ -209,15 +213,18 @@ var CPDLC = {
             var parentID = me.makeMessageID(msg.to, 'C', msg.cpdlc.mrn);
             var parent = me.getMessage(parentID);
             if (parent != nil and me.closesDialog(parent.cpdlc.ra, m)) {
-                var numRemoved = me.removeItem(me.openNode, parentID);
-                me.numOpenNode.decrement(numRemoved);
+                me.removeItem(me.openNode, me.numOpenNode, parentID);
             }
         }
         if (msg.cpdlc.ra == 'Y') {
-            me.addItem(me.openNode, msgID);
-            me.numOpenNode.increment();
+            me.addItem(me.openNode, me.numOpenNode, msgID);
         }
+        me.addItem(me.historyNode, nil, msgID);
         me.selectMessage(msgID);
+    },
+
+    clearHistory: func () {
+        me.historyNode.removeChildren('item');
     },
 
     getMessage: func(msgID) {
@@ -255,6 +262,7 @@ var CPDLC = {
                     min: '',
                     mrn: '',
                     ra: '',
+                    reply: '',
                 },
                 from: '',
                 to: '',
@@ -281,8 +289,7 @@ var CPDLC = {
                 node.setValue('message', '');
             }
         }
-        var numRemoved = me.removeItem(me.unreadNode, msgID);
-        me.numUnreadNode.decrement(numRemoved);
+        me.removeItem(me.unreadNode, me.numUnreadNode, msgID);
         me.selectedMessageIDNode.setValue(msgID or '');
     },
 
@@ -413,8 +420,7 @@ var CPDLC = {
             return;
         }
         if (me.closesDialog(msg.cpdlc.ra, reply)) {
-            var numRemoved = me.removeItem(me.openNode, msgID);
-            me.numOpenNode.decrement(numRemoved);
+            me.removeItem(me.openNode, me.numOpenNode, msgID);
         }
         me.sendCPDLC(msg.from, msg.cpdlc.min, ra, reply);
     },
@@ -525,8 +531,7 @@ var CPDLC = {
         msg.serial = serial;
 
         var msgID = me.putMessage(msg);
-        me.addItem(me.unreadNode, msgID);
-        me.numUnreadNode.increment();
+        me.addItem(me.unreadNode, me.numUnreadNode, msgID);
 
         if (msg.type == 'cpdlc') {
             me.cpdlcHandleUplink(msg);
