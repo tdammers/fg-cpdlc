@@ -193,12 +193,19 @@ var CPDLC = {
             me.addItem(me.openNode, me.numOpenNode, msgID);
         }
         me.addItem(me.historyNode, nil, msgID);
+        me.cpdlcHandleMRN(msgID, msg, m);
+    },
 
+    cpdlcHandleMRN: func (msgID, msg, m) {
         if (msg.cpdlc.mrn != '') {
             var parentID = me.makeMessageID(msg.to, 'C', msg.cpdlc.mrn);
             var parent = me.getMessage(parentID);
-            if (parent != nil and me.closesDialog(parent.cpdlc.ra, m)) {
-                me.removeItem(me.openNode, me.numOpenNode, parentID);
+            if (parent != nil) {
+                if (me.closesDialog(parent.cpdlc.ra, m)) {
+                    me.removeItem(me.openNode, me.numOpenNode, parentID);
+                }
+                setprop('/cpdlc/messages/' ~ parentID ~ '/reply', msgID);
+                setprop('/cpdlc/messages/' ~ msgID ~ '/parent', parentID);
             }
         }
     },
@@ -209,13 +216,7 @@ var CPDLC = {
         if (typeof(m) == 'vector') { m = m[0]; }
         m = string.uc(m);
 
-        if (msg.cpdlc.mrn != '') {
-            var parentID = me.makeMessageID(msg.to, 'C', msg.cpdlc.mrn);
-            var parent = me.getMessage(parentID);
-            if (parent != nil and me.closesDialog(parent.cpdlc.ra, m)) {
-                me.removeItem(me.openNode, me.numOpenNode, parentID);
-            }
-        }
+        me.cpdlcHandleMRN(msgID, msg, m);
         if (msg.cpdlc.ra == 'Y') {
             me.addItem(me.openNode, me.numOpenNode, msgID);
         }
