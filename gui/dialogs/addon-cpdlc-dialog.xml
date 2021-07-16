@@ -20,7 +20,7 @@
             }
 
             var updateDownlinkElementCombo = func (node) {
-                print("UPDATE DOWNLINK GROUP");
+                # print("UPDATE DOWNLINK GROUP");
                 var group = node.getValue();
                 var items = globals.CPDLC.downlinkElems[group];
                 setprop('/cpdlc/dialog/downlink-element', '');
@@ -28,7 +28,7 @@
                 downlinkElemCombo.addChild('value').setValue('');
                 if (typeof(items) == 'vector') {
                     foreach (var row; items) {
-                        debug.dump(row[1]);
+                        # debug.dump(row[1]);
                         downlinkElemCombo.addChild('value').setValue(row[1]);
                     }
                 }
@@ -37,7 +37,7 @@
             var groupListener = setlistener('/cpdlc/dialog/downlink-group', updateDownlinkElementCombo, 1, 0);
 
             var updateDownlinkFields = func (node) {
-                print("UPDATE DOWNLINK ELEM");
+                # print("UPDATE DOWNLINK ELEM");
                 var group = getprop('/cpdlc/dialog/downlink-group');
                 var elem = node.getValue();
                 var items = globals.CPDLC.downlinkElems[group];
@@ -51,7 +51,7 @@
                         }
                     }
                 }
-                debug.dump(item);
+                # debug.dump(item);
                 if (item == nil) {
                     setprop('/cpdlc/dialog/downlink-reply', 'N');
                 }
@@ -60,7 +60,7 @@
                 }
                 for (var i = 0; i < 6; i += 1) {
                     var field = (item != nil and i < size(item[4])) ? item[4][i] : '';
-                    debug.dump(field);
+                    # debug.dump(field);
                     if (field == '') {
                         setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/label', substr(field, 1));
                         setprop('/cpdlc/dialog/downlink-field[' ~ i ~ ']/value', '');

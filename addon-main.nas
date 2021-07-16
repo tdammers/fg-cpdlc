@@ -67,6 +67,235 @@ var CPDLC = {
         ],
     },
 
+    uplinkPatterns: [
+        # RTEU (route uplinks)
+        'PROCEED DIRECT TO @position',
+        'AT TIME @time PROCEED DIRECT TO @position',
+        'AT @position PROCEED DIRECT TO @position',
+        'CLEARED TO @position VIA @@',
+        'CLEARED @@',
+        'AT @position CLEARED @@',
+        'AT @position HOLD @@',
+        'EXPECT FURTHER CLEARANCE AT TIME @time',
+        'EXPECT @@',
+        'CONFIRM ASSIGNED ROUTE',
+        'REQUEST POSITION REPORT',
+        'ADVISE ETA @position',
+
+        # LATU (lateral uplinks)
+        'OFFSET @distance @direction OF ROUTE',
+        'AT @position OFFSET @ @ OF ROUTE',
+        'AT TIME @time OFFSET @ @ OF ROUTE',
+        'REJOIN ROUTE BEFORE PASSING @position',
+        'REJOIN ROUTE BEFORE TIME @time',
+        'EXPECT BACK ON ROUTE BEFORE PASSING @position',
+        'EXPECT BACK ON ROUTE BEFORE TIME @time',
+        'REJOIN ROUTE',
+        'RESUME OWN NAVIGATION',
+        'CLEARED TO DEVIATE UP TO @direction OF ROUTE',
+        'TURN @turn-dir HEADING @heading',
+        'TURN @turn-dir GROUND TRACK @track',
+        'TURN @turn-dir @degrees DEGREES',
+        'CONTINUE PRESENT HEADING',
+        'AT @position FLY HEADING @heading',
+        'FLY HEADING @heading',
+        'REPORT CLEAR OF WEATHER',
+        'REPORT BACK ON ROUTE',
+        'REPORT PASSING',
+
+        # LVLU (level uplinks)
+        'EXPECT HIGHER AT TIME @time',
+        'EXPECT HIGHER AT @position',
+        'EXPECT LOWER AT TIME @time',
+        'EXPECT LOWER AT @position',
+        'MAINTAIN @level',
+        'CLIMB TO @level',
+        'AT TIME @time CLIMB TO @level',
+        'AT @position CLIMB TO @level',
+        'DESCEND TO @level',
+        'AT TIME @time DESCEND TO @level',
+        'AT @position DESCEND TO @level',
+        'CLIMB TO REACH @level BEFORE TIME @time',
+        'CLIMB TO REACH @level BEFORE PASSING @',
+        'DESCEND TO REACH @level BEFORE TIME @time',
+        'DESCEND TO REACH @level BEFORE PASSING @',
+        'STOP CLIMB AT @level',
+        'STOP DESCENT AT @level',
+        'CLIMB AT @rate OR GREATER',
+        'CLIMB AT @rate OR LESS',
+        'DESCEND AT @rate OR GREATER',
+        'DESCEND AT @rate OR LESS',
+        'EXPECT @level @minutes AFTER DEPARTURE',
+        'REPORT LEAVING @level',
+        'REPORT MAINTAINING @level',
+        'REPORT PRESENT LEVEL',
+        'REPORT REACHING BLOCK @level TO @level',
+        'CONFIRM ASSIGNED LEVEL',
+        'ADVISE PREFERRED LEVEL',
+        'ADVISE TOP OF DESCENT',
+        'WHEN CAN YOU ACCEPT @level',
+        'CAN YOU ACCEPT @level AT TIME @time',
+        'CAN YOU ACCEPT @level AT @position',
+
+        # CSTU (crossing constraint uplinks)
+        'CROSS @position AT OR ABOVE @level',
+        'CROSS @position AT OR BELOW @level',
+        'CROSS @position AT TIME @time AT @level',
+        'CROSS @position AT TIME @time',
+        'CROSS @position BEFORE TIME @time AT @level',
+        'CROSS @position BEFORE TIME @time',
+        'CROSS @position AFTER TIME @time AT @level',
+        'CROSS @position AFTER TIME @time',
+        'CROSS @position BETWEEN TIME @time AND TIME @time',
+        'CROSS @position AT @speed OR GREATER',
+        'CROSS @position AT @speed OR LESS',
+        'CROSS @position AT @level AT @speed',
+        'CROSS @position AT @level',
+        'CROSS @position AT @speed',
+
+        # SPDU (speed uplinks)
+        'EXPECT SPEED CHANGE AT TIME @time',
+        'EXPECT SPEED CHANGE AT @position',
+        'MAINTAIN PRESENT SPEED',
+        'MAINTAIN @speed OR GREATER',
+        'MAINTAIN @speed OR LESS',
+        'MAINTAIN @speed TO @speed',
+        'MAINTAIN @speed',
+        'INCREASE SPEED TO @speed OR GREATER',
+        'INCREASE SPEED TO @speed TO @speed',
+        'REDUCE SPEED TO @speed OR LESS',
+        'REDUCE SPEED TO @speed TO @speed',
+        'RESUME NORMAL SPEED',
+        'NO SPEED RESTRICTION',
+        'REPORT @speed-type SPEED',
+        'CONFIRM ASSIGNED SPEED',
+        'WHEN CAN YOU ACCEPT @speed',
+
+        # FREE TEXT
+        '@@',
+    ],
+
+    matchPattern: func (words, pattern) {
+        var result = [];
+        var iIn = 0;
+        var iPat = 0;
+        var accum = [];
+        if (typeof(pattern) == 'scalar') {
+            pattern = split(' ', pattern);
+        }
+        var peek = func () {
+            if (iIn < size(words)) {
+                return string.replace(words[iIn], '@', '');
+            }
+            else {
+                return nil;
+            }
+        };
+        var consume = func () {
+            var tok = peek();
+            if (tok != nil) {
+                iIn += 1;
+            }
+            return tok;
+        };
+        var consumeAll = func () {
+            var token = nil;
+            var output = [];
+            while (token = consume()) {
+                append(output, token);
+            }
+            return string.join(' ', output);
+        };
+
+        var flush = func () {
+            if (size(accum) > 0) {
+                append(result, { 'type': 'text', 'value': string.join(' ', accum) });
+                accum = [];
+            }
+        };
+
+        var emit = func (item) {
+            append(result, item);
+        };
+
+        var emitWord = func (word) {
+            if (word != '')
+                append(accum, word);
+        };
+
+        for (iPat = 0; iPat < size(pattern); iPat += 1) {
+            var pat = pattern[iPat];
+            if (substr(pat, 0, 1) == '@') {
+                flush();
+                if (pat == '@@') {
+                    # capture the remainder of the input
+                    emit({'type': 'var', 'value': consumeAll()});
+                }
+                elsif (pat == '@heading') {
+                    var hdg = consume();
+                    if (string.match(hdg, '[0-9][0-9][0-9]')) {
+                        emit({'type': 'heading', 'value': hdg});
+                    }
+                }
+                elsif (pat == '@level') {
+                    var lvl = consume();
+                    if (string.match(lvl, 'FL[1-9][0-9][0-9]') or string.match(lvl, 'FL[1-9][0-9]')) {
+                        # already in FL100 format
+                    }
+                    elsif (substr(lvl, -2) == 'FT') {
+                        lvl = substr(lvl, 0, size(lvl) - 2);
+                    }
+                    elsif (lvl == 'FL') {
+                        lvl = 'FL' ~ consume();
+                    }
+                    elsif (peek() == 'FT') {
+                        consume();
+                    }
+                    elsif (string.match(lvl, '[1-9][0-9][0-9]') or string.match(lvl, '[1-9][0-9]')) {
+                        lvl = 'FL' ~ lvl;
+                    }
+                    emit({'type': 'level', 'value': lvl});
+                }
+                else {
+                    # unknown variable
+                    emit({'type': substr(pat, 1) or 'var', 'value': consumeAll()});
+                }
+            }
+            else {
+                # free text
+                var word = consume();
+                if (word != pat) {
+                    return nil;
+                }
+                else {
+                    emitWord(string.trim(word));
+                }
+            }
+        }
+        flush();
+        return [result, subvec(words, iIn)];
+    },
+
+    parseCPDLCMessage: func (rawMessage) {
+        var rawElems = split('/', rawMessage);
+        var elems = [];
+        foreach (var m; rawElems) {
+            var words = split(' ', m);
+            while (size(words) > 0) {
+                foreach (var pattern; CPDLC.uplinkPatterns) {
+                    var result = CPDLC.matchPattern(words, pattern);
+                    if (result != nil) {
+                        debug.dump(pattern, result[0]);
+                        append(elems, result[0]);
+                        words = result[1];
+                        break;
+                    }
+                }
+            }
+        }
+        return elems;
+    },
+
     # Methods
     new: func () {
         return {
@@ -179,13 +408,22 @@ var CPDLC = {
             me.cpdlcRequestLogon(vars[0]);
             triggerSignal = 0;
         }
-        elsif (startswith(m, 'CURRENT ATC UNIT') and (string.scanf(m, 'CURRENT ATC UNIT@_@%4s@_@%', vars) != 0)) {
-            var currentStation = vars[0];
-            var stationName = substr(m, size('CURRENT ATC UNIT@_@@_@') + size(currentStation));
-            if (getprop('/cpdlc/current-station') == currentStation) {
-                setprop('/cpdlc/current-station-name', stationName);
+        elsif (startswith(m, 'CURRENT ATC UNIT')) {
+            if (string.scanf(m, 'CURRENT ATC UNIT@_@%4s@_@%', vars) != 0) {
+                var currentStation = vars[0];
+                var stationName = substr(m, size('CURRENT ATC UNIT@_@@_@') + size(currentStation));
+                if (getprop('/cpdlc/current-station') == currentStation) {
+                    setprop('/cpdlc/current-station-name', stationName);
+                }
+                triggerSignal = 0;
             }
-            triggerSignal = 0;
+            elsif (string.scanf(m, 'CURRENT ATC UNIT@_@%4s', vars) != 0) {
+                var currentStation = vars[0];
+                if (getprop('/cpdlc/current-station') == currentStation) {
+                    setprop('/cpdlc/current-station-name', currentStation);
+                }
+                triggerSignal = 0;
+            }
         }
         else {
             debug.dump('UNKNOWN UPLINK', m);
