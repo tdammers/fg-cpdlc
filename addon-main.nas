@@ -84,6 +84,7 @@ var CPDLC = {
             unreadNode: props.globals.getNode('/cpdlc/unread', 1),
             openNode: props.globals.getNode('/cpdlc/open', 1),
             historyNode: props.globals.getNode('/cpdlc/history', 1),
+            newestUplinkNode: props.globals.getNode('/cpdlc/newest-uplink', 1),
         };
     },
 
@@ -144,6 +145,7 @@ var CPDLC = {
 
 
     cpdlcHandleUplink: func (msg) {
+        var triggerSignal = 1;
         var msgID = me.makeMessageID(msg);
         var m = msg.cpdlc.message;
         var vars = [];
@@ -158,6 +160,7 @@ var CPDLC = {
             setprop('/cpdlc/next-station-name', '');
             setprop('/cpdlc/logon-status', 'ACCEPTED');
             setprop('/cpdlc/logon-station', '');
+            triggerSignal = 0;
         }
         elsif (m == 'LOGOFF') {
             setprop('/cpdlc/last-station', getprop('/cpdlc/current-station'));
@@ -168,11 +171,13 @@ var CPDLC = {
             setprop('/cpdlc/next-station-name', '');
             setprop('/cpdlc/logon-status', '');
             setprop('/cpdlc/logon-station', '');
+            triggerSignal = 0;
         }
         elsif (startswith(m, 'HANDOVER') and string.scanf(m, 'HANDOVER @%4s', vars)) {
             setprop('/cpdlc/next-station', vars[0]);
             setprop('/cpdlc/next-station-name', '');
             me.cpdlcRequestLogon(vars[0]);
+            triggerSignal = 0;
         }
         elsif (startswith(m, 'CURRENT ATC UNIT') and (string.scanf(m, 'CURRENT ATC UNIT@_@%4s@_@%', vars) != 0)) {
             var currentStation = vars[0];
@@ -180,6 +185,7 @@ var CPDLC = {
             if (getprop('/cpdlc/current-station') == currentStation) {
                 setprop('/cpdlc/current-station-name', stationName);
             }
+            triggerSignal = 0;
         }
         else {
             debug.dump('UNKNOWN UPLINK', m);
@@ -192,8 +198,14 @@ var CPDLC = {
             # response required, add to open dialog heads.
             me.addItem(me.openNode, me.numOpenNode, msgID);
         }
+
         me.addItem(me.historyNode, nil, msgID);
         me.cpdlcHandleMRN(msgID, msg, m);
+
+        # only do the 'newest uplink' signal for non-logon messages
+        if (triggerSignal) {
+            me.newestUplinkNode.setValue(msgID);
+        }
     },
 
     cpdlcHandleMRN: func (msgID, msg, m) {
@@ -279,7 +291,6 @@ var CPDLC = {
         else {
             node.setValues(msg);
             node.setValue('id', msgID);
-            debug.dump(msg);
             if (msg['cpdlc'] != nil) {
                 node.setValue('message', string.join('/', msg.cpdlc.message));
             }
@@ -341,12 +352,16 @@ var CPDLC = {
         }
     },
 
-    selectFirstUnread: func () {
+    getFirstUnread: func () {
         if (me.numUnreadNode.getValue() == 0) {
             me.select(nil);
             return;
         }
-        var msgID = me.unreadNode.getValue('item');
+        return me.unreadNode.getValue('item');
+    },
+
+    selectFirstUnread: func () {
+        msgId = me.getFirstUnread();
         me.selectMessage(msgID);
     },
 

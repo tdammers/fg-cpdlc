@@ -40,5 +40,6 @@
         <history />
         <unread />
         <open />
+        <newest-uplink type="string"></newest-uplink>
     </cpdlc>
 </PropertyList>
